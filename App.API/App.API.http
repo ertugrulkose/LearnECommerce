@@ -1,0 +1,83 @@
+@App.API_HostAddress = http://localhost:5000
+
+### Get all products
+GET {{App.API_HostAddress}}/api/products
+Accept: application/json
+
+###
+
+### Get a product by ID
+GET {{App.API_HostAddress}}/api/products/1013
+Accept: application/json
+
+###
+
+### Create a new product
+POST {{App.API_HostAddress}}/api/products
+Content-Type: application/json
+
+{
+  "name": "New Product",
+  "price": 19.99,
+  "stock": 100,
+  "categoryId": 1
+}
+
+###
+
+### Update an existing product
+PUT {{App.API_HostAddress}}/api/products/1020
+Content-Type: application/json
+
+{
+  "name": "Updated Product",
+  "price": 29.99,
+  "stock": 150,
+  "categoryId": 1
+}
+
+###
+
+### Delete a product
+DELETE {{App.API_HostAddress}}/api/products/1013
+Accept: application/json
+
+###
+
+### Get all categories
+GET {{App.API_HostAddress}}/api/categories
+Accept: application/json
+
+###
+
+### Get a category by ID
+GET {{App.API_HostAddress}}/api/categories/1
+Accept: application/json
+
+###
+
+### Create a new category
+POST {{App.API_HostAddress}}/api/categories
+Content-Type: application/json
+
+{
+  "name": "New Category"
+}
+
+###
+
+### Update an existing category
+PUT {{App.API_HostAddress}}/api/categories/7
+Content-Type: application/json
+
+{
+  "name": "Updated Category"
+}
+
+###
+
+### Delete a category
+DELETE {{App.API_HostAddress}}/api/categories/7
+Accept: application/json
+
+###
