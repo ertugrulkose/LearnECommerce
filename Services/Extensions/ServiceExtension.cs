@@ -8,6 +8,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
 using App.Services.Filters;
+using App.Services.Queues;
+using App.Services.Queues.Publishers;
+using App.Services.Exporters;
 
 namespace App.Services.Extensions
 {
@@ -33,6 +36,17 @@ namespace App.Services.Extensions
             // for ExceptionHandler
             services.AddExceptionHandler<CriticalExceptionHandler>();
             services.AddExceptionHandler<GlobalExceptionHandler>();
+
+            // for RabbitMQ
+            services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
+
+            services.Configure<RabbitMqSettings>(configuration.GetSection("RabbitMqSettings"));
+
+
+            // for excell 
+            services.AddScoped<CategoryExcelExporter>();
+
+
 
             return services;
         }

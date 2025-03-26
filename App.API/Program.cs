@@ -1,6 +1,7 @@
 using App.Repositories.Extensions;
 using App.Services;
 using App.Services.Extensions;
+using App.Services.Queues.Consumers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +34,13 @@ builder.Services.AddCors(options =>
 });
 
 
-builder.Services.AddRepositories(builder.Configuration).AddServices(builder.Configuration);
+builder.Services
+    .AddRepositories(builder.Configuration)
+    .AddServices(builder.Configuration);
+
+// for RabbitMQ
+builder.Services.AddHostedService<RabbitMqConsumer>();
+builder.Services.AddHostedService<ExcelExportConsumer>();
 
 var app = builder.Build();
 
