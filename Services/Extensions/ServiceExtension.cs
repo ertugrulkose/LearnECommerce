@@ -10,7 +10,7 @@ using System.Reflection;
 using App.Services.Filters;
 using App.Services.Queues;
 using App.Services.Queues.Publishers;
-using App.Services.Exporters;
+using App.Services.Reports;
 
 namespace App.Services.Extensions
 {
@@ -44,8 +44,7 @@ namespace App.Services.Extensions
 
 
             // for excell 
-            services.AddScoped<CategoryExcelExporter>();
-
+            services.AddScoped<ICategoryExcelExporter, CategoryExcelExporter>();
 
 
             return services;

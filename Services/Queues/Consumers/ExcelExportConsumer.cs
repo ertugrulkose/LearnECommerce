@@ -1,13 +1,13 @@
-﻿using System.Text;
-using System.Text.Json;
-using App.Services.Exporters;
+﻿using App.Services.Categories;
 using App.Services.Queues.Constants;
 using App.Services.Queues.Messages;
-using Microsoft.Extensions.Hosting;
-using RabbitMQ.Client.Events;
-using RabbitMQ.Client;
-using Microsoft.Extensions.Options;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
+using System.Text;
+using System.Text.Json;
 
 namespace App.Services.Queues.Consumers
 {
@@ -16,6 +16,7 @@ namespace App.Services.Queues.Consumers
         private readonly ConnectionFactory _factory;
         private readonly RabbitMqSettings _settings;
         private readonly IServiceScopeFactory _scopeFactory;
+
 
         public ExcelExportConsumer(IOptions<RabbitMqSettings> options, IServiceScopeFactory scopeFactory)
         {
@@ -57,12 +58,30 @@ namespace App.Services.Queues.Consumers
 
                     if (message?.ExportType == "category")
                     {
-                        // 🔄 Scoped service oluştur
+                        // 🔄 Scoped service oluştur // buraya sonra bakılcak
                         using var scope = _scopeFactory.CreateScope();
-                        var exporter = scope.ServiceProvider.GetRequiredService<CategoryExcelExporter>();
 
-                        var fileName = await exporter.ExportAsync();
+                        var categoryService = scope.ServiceProvider.GetRequiredService<ICategoryService>();
+
+                        var excelBytes = await categoryService.ReportCategoriesToExcelAsync(
+                            message.Filters,
+                            message.Columns,
+                            message.Sort
+                        );
+
+                        var fileName = $"kategori-raporu-{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx";
+                        var exportPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "exports");
+
+                        if (!Directory.Exists(exportPath))
+                            Directory.CreateDirectory(exportPath);
+
+                        var fullPath = Path.Combine(exportPath, fileName);
+                        await File.WriteAllBytesAsync(fullPath, excelBytes);
+
                         Console.WriteLine($"✅ Excel dosyası oluşturuldu: /exports/{fileName}");
+
+                        // TODO: SignalR ile kullanıcıya bildir
+
                     }
                 }
                 catch (Exception ex)

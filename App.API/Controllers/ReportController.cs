@@ -1,11 +1,10 @@
 ﻿using App.Services.Queues.Messages;
 using App.Services.Queues.Publishers;
-using DocumentFormat.OpenXml.Bibliography;
 using Microsoft.AspNetCore.Mvc;
 
 namespace App.API.Controllers
 {
-    public class TestController(IRabbitMQPublisher rabbitMqPublisher) : CustomBaseController
+    public class ReportController(IRabbitMQPublisher rabbitMqPublisher) : CustomBaseController
     {
         [HttpGet("send")]
         public async Task<IActionResult> SendTestMessage()
@@ -21,14 +20,10 @@ namespace App.API.Controllers
         }
 
         [HttpPost("category")]
-        public async Task<IActionResult> ExportCategoryToExcel()
+        public async Task<IActionResult> ExportCategoryToExcel([FromBody] ExcelExportMessage message)
         {
-            var message = new ExcelExportMessage
-            {
-                ExportType = "category",
-                RequestedBy = "admin",
-                RequestedAt = DateTime.Now
-            };
+            if (message == null || string.IsNullOrWhiteSpace(message.ExportType))
+                return BadRequest("Eksik export bilgisi.");
 
             await rabbitMqPublisher.SendMessageAsync(message);
 

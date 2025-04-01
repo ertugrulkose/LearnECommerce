@@ -6,10 +6,12 @@ using App.Services.Categories.Update;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
+using App.Services.Reports;
+using App.Services.Queues.Messages;
 
 namespace App.Services.Categories
 {
-    public class CategoryService(ICategoryRepository categoryRepository, IUnitOfWork unitOfWork, IMapper mapper) : ICategoryService
+    public class CategoryService(ICategoryRepository categoryRepository, IUnitOfWork unitOfWork, IMapper mapper, ICategoryExcelExporter excelExporter) : ICategoryService
     {
         public async Task<ServiceResult<CategoryWithProductsDto>> GetCategoryWithProductsAsync(int categoryId)
         {
@@ -135,6 +137,95 @@ namespace App.Services.Categories
             await unitOfWork.SaveChangesAsync();
             return ServiceResult.Success(HttpStatusCode.NoContent);
         }
-       
+
+        public async Task<string> ReportCategoriesToExcelAsync()
+        {
+            var categories = await categoryRepository.GetAll().ToListAsync();
+
+            var reportData = categories.Select(cat => new CategoryReportDto
+            {
+                CategoryCode = cat.CategoryCode,
+                Name = cat.Name,
+                ParentCategoryName = cat.ParentCategoryId == null
+                    ? "Ana Kategori"
+                    : categories.FirstOrDefault(c => c.Id == cat.ParentCategoryId)?.Name,
+                SubCategoryCount = categories.Count(c => c.ParentCategoryId == cat.Id)
+            }).ToList();
+
+            return await excelExporter.ExportAsync(reportData);
+        }
+
+        public async Task<byte[]> ReportCategoriesToExcelAsync(
+            Dictionary<string, string>? filters,
+            List<string>? columns,
+            SortConfig? sortConfig)
+        {
+            var query = categoryRepository.GetAll();
+
+            // 📌 SQL destekli filtreler
+            if (filters != null)
+            {
+                if (filters.TryGetValue("name", out var nameFilter) && !string.IsNullOrWhiteSpace(nameFilter))
+                    query = query.Where(x => x.Name.Contains(nameFilter));
+
+                if (filters.TryGetValue("categoryCode", out var codeFilter) && !string.IsNullOrWhiteSpace(codeFilter))
+                    query = query.Where(x => x.CategoryCode.Contains(codeFilter));
+
+                if (filters.TryGetValue("parentCategoryId", out var parentIdFilter))
+                {
+                    if (parentIdFilter == "null")
+                        query = query.Where(x => x.ParentCategoryId == null);
+                    else if (int.TryParse(parentIdFilter, out var pid))
+                        query = query.Where(x => x.ParentCategoryId == pid);
+                }
+            }
+
+            var filtered = await query.ToListAsync();
+            var allCategories = await categoryRepository.GetAll().ToListAsync();
+
+            // 📌 Dto mapleme
+            var reportData = filtered.Select(cat => new CategoryReportDto
+            {
+                CategoryCode = cat.CategoryCode,
+                Name = cat.Name,
+                ParentCategoryName = cat.ParentCategoryId == null
+                    ? "Ana Kategori"
+                    : allCategories.FirstOrDefault(c => c.Id == cat.ParentCategoryId)?.Name ?? "Bilinmiyor",
+                SubCategoryCount = allCategories.Count(c => c.ParentCategoryId == cat.Id)
+            }).ToList();
+
+            // 📌 SubCategoryCount filtresi
+            if (filters != null && filters.TryGetValue("subCategoryCount", out var subCountFilter))
+            {
+                if (subCountFilter == "0")
+                    reportData = reportData.Where(x => x.SubCategoryCount == 0).ToList();
+                else if (subCountFilter == "1+")
+                    reportData = reportData.Where(x => x.SubCategoryCount > 0).ToList();
+            }
+
+            // 📌 Sıralama
+            if (sortConfig is { Key: not null, Direction: not null })
+            {
+                var prop = typeof(CategoryReportDto).GetProperty(
+                    sortConfig.Key,
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.IgnoreCase // 👈 bu satır çok önemli!
+                );
+
+                if (prop != null)
+                {
+                    reportData = sortConfig.Direction.ToLower() switch
+                    {
+                        "desc" => reportData.OrderByDescending(x => prop.GetValue(x)).ToList(),
+                        _ => reportData.OrderBy(x => prop.GetValue(x)).ToList()
+                    };
+                }
+            }
+
+
+            return await excelExporter.FilteredColumnsExportAsync(reportData, columns);
+        }
+
     }
 }
