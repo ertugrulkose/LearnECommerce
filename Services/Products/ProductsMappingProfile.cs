@@ -9,7 +9,9 @@ namespace App.Services.Products
     {
         public ProductsMappingProfile()
         {
-            CreateMap<Product, ProductDto>().ReverseMap();
+            CreateMap<Product, ProductDto>()
+                .ForMember(dest => dest.CategoryName, opt => opt.MapFrom(src => src.Category.Name))
+                .ReverseMap();
 
             // To lower name
             CreateMap<CreateProductRequest, Product>().ForMember(dest => dest.Name,

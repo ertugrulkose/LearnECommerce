@@ -2,16 +2,21 @@
 using App.Repositories.Categories;
 using App.Services.Categories.Create;
 using App.Services.Categories.Dto;
+using App.Services.Categories.Search;
 using App.Services.Categories.Update;
+using App.Services.Queues.Messages;
+using App.Services.Reports;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
-using App.Services.Reports;
-using App.Services.Queues.Messages;
 
 namespace App.Services.Categories
 {
-    public class CategoryService(ICategoryRepository categoryRepository, IUnitOfWork unitOfWork, IMapper mapper, ICategoryExcelExporter excelExporter) : ICategoryService
+    public class CategoryService(
+        ICategoryRepository categoryRepository,
+        IUnitOfWork unitOfWork,
+        IMapper mapper,
+        ICategoryExcelExporter excelExporter) : ICategoryService
     {
         public async Task<ServiceResult<CategoryWithProductsDto>> GetCategoryWithProductsAsync(int categoryId)
         {
@@ -21,6 +26,7 @@ namespace App.Services.Categories
             {
                 return ServiceResult<CategoryWithProductsDto>.Fail("Kategori Bulunamadı", HttpStatusCode.NotFound);
             }
+
             var categoryAsDto = mapper.Map<CategoryWithProductsDto>(category);
 
             return ServiceResult<CategoryWithProductsDto>.Success(categoryAsDto);
@@ -37,10 +43,29 @@ namespace App.Services.Categories
 
         public async Task<ServiceResult<List<CategoryDto>>> GetAllListAsync()
         {
-            var categories = await categoryRepository.GetAll().ToListAsync();
+            var categories = await categoryRepository.GetAll()
+                .Include(x => x.SubCategories)
+                .Include(x => x.ParentCategory)
+                .ToListAsync();
             var categoriesAsDto = mapper.Map<List<CategoryDto>>(categories);
             return ServiceResult<List<CategoryDto>>.Success(categoriesAsDto);
         }
+
+        public async Task<ServiceResult<List<CategoryDto>>> GetPagedAllListAsync(int pageNumber, int pageSize)
+        {
+            var categories = await categoryRepository
+                .GetAll()
+                .Include(x => x.SubCategories)
+                .Include(x => x.ParentCategory)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var categoriesDto = mapper.Map<List<CategoryDto>>(categories);
+
+            return ServiceResult<List<CategoryDto>>.Success(categoriesDto);
+        }
+
 
         public async Task<ServiceResult<CategoryDto>> GetByIdAsync(int id)
         {
@@ -61,7 +86,8 @@ namespace App.Services.Categories
             var category = await categoryRepository.GetByIdWithSubcategoriesAsync(id);
             if (category is null)
             {
-                return ServiceResult<CategoryWithSubcategoriesDto>.Fail("Alt Kategori bulunamadı.",HttpStatusCode.NotFound);
+                return ServiceResult<CategoryWithSubcategoriesDto>.Fail("Alt Kategori bulunamadı.",
+                    HttpStatusCode.NotFound);
             }
 
             var categoryAsDto = mapper.Map<CategoryWithSubcategoriesDto>(category);
@@ -82,7 +108,8 @@ namespace App.Services.Categories
             // Geçersiz ParentCategoryId değerleri için kontrol (Negatif değer kabul edilmez)
             if (request.ParentCategoryId < 0)
             {
-                return ServiceResult<int>.Fail("Bağlı olduğu kategori geçersiz bir değere sahip.", HttpStatusCode.BadRequest);
+                return ServiceResult<int>.Fail("Bağlı olduğu kategori geçersiz bir değere sahip.",
+                    HttpStatusCode.BadRequest);
             }
 
             // Eğer ParentCategoryId 0 olarak geldiyse bunu null olarak kabul et (Ana Kategori)
@@ -113,7 +140,8 @@ namespace App.Services.Categories
 
         public async Task<ServiceResult> UpdateAsync(int id, UpdateCategoryRequest request)
         {
-            var isCategoryNameExist = await categoryRepository.Where(x => x.Name == request.Name && x.Id != id).AnyAsync();
+            var isCategoryNameExist =
+                await categoryRepository.Where(x => x.Name == request.Name && x.Id != id).AnyAsync();
 
             if (isCategoryNameExist)
             {
@@ -227,5 +255,68 @@ namespace App.Services.Categories
             return await excelExporter.FilteredColumnsExportAsync(reportData, columns);
         }
 
+        public async Task<ServiceResult<PagedResult<CategoryDto>>> SearchCategoriesAsync(SearchCategoryRequest request)
+        {
+            var query = categoryRepository.GetAll();
+
+            if (request.Filters?.TryGetValue("name", out var name) == true && !string.IsNullOrWhiteSpace(name))
+                query = query.Where(x => x.Name.Contains(name));
+
+            if (request.Filters?.TryGetValue("categoryCode", out var code) == true && !string.IsNullOrWhiteSpace(code))
+                query = query.Where(x => x.CategoryCode.Contains(code));
+
+            if (request.Filters?.TryGetValue("parentCategoryId", out var parentIdStr) == true && !string.IsNullOrWhiteSpace(parentIdStr))
+            {
+                if (parentIdStr == "null")
+                {
+                    // Ana kategoriler (Parent'ı olmayanlar)
+                    query = query.Where(x => x.ParentCategoryId == null);
+                }
+                else if (int.TryParse(parentIdStr, out var parentId))
+                {
+                    query = query.Where(x => x.ParentCategoryId == parentId);
+                }
+            }
+
+            if (request.Filters?.TryGetValue("subCategoryCount", out var subCategoryCount) == true && !string.IsNullOrWhiteSpace(subCategoryCount))
+            {
+                if (subCategoryCount == "0")
+                {
+                    // Alt kategorisi olmayanlar (SubCategories.Count == 0)
+                    query = query.Where(x => x.SubCategories == null || !x.SubCategories.Any());
+                }
+                else if (subCategoryCount == "1+")
+                {
+                    // Alt kategorisi olanlar (SubCategories.Count > 0)
+                    query = query.Where(x => x.SubCategories != null && x.SubCategories.Any());
+                }
+            }
+
+
+            // 🆕 Parent ve SubCategories dahil ediyoruz
+            query = query
+                .Include(x => x.ParentCategory)
+                .Include(x => x.SubCategories);
+
+            // Total Count
+            var totalCount = await query.CountAsync();
+
+            // Pagination uygulanmış Items çekilir
+            var items = await query
+                .Skip((request.PageNumber - 1) * request.PageSize)
+                .Take(request.PageSize)
+                .ToListAsync();
+
+
+            // DTO Mapping (AutoMapper zaten ParentCategoryName ve SubCategories dolduracak)
+            var mappedItems = mapper.Map<List<CategoryDto>>(items);
+
+            var result = new PagedResult<CategoryDto>(
+                Items: mappedItems,
+                TotalCount: totalCount
+            );
+
+            return ServiceResult<PagedResult<CategoryDto>>.Success(result);
+        }
     }
 }

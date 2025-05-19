@@ -1,5 +1,6 @@
 ﻿using App.Repositories;
 using App.Repositories.Products;
+using App.Services.Categories.Search;
 using App.Services.Products.Create;
 using App.Services.Products.Update;
 using App.Services.Products.UpdateStock;
@@ -25,24 +26,9 @@ namespace App.Services.Products
         
         public async Task<ServiceResult<List<ProductDto>>> GetAllListAsync()
         {
-            var products = await productRepository.GetAll().ToListAsync();
-
-            #region Manuel Mapping
-            //var productsAsDto = products.Select(p => new ProductDto(p.Id, p.Name, p.Price, p.Stock)).ToList();
-            #endregion
-
-            var productsAsDto = mapper.Map<List<ProductDto>>(products);
-
-            return ServiceResult<List<ProductDto>>.Success(productsAsDto);            
-        }
-       
-        public async Task<ServiceResult<List<ProductDto>>> GetPagedAllListAsync(int pageNumber, int pageSize)
-        {
-            // 1 - 10 =>  ilk 10 kayıt   skip(0).Take(10)
-            // 11 - 20 => 11. kayıttan 10 kayıt skip(10).Take(10)
-            // 21 - 30 => 21. kayıttan 10 kayıt skip(20).Take(10)
-
-            var products = await productRepository.GetAll().Skip((pageNumber -1) * pageSize).Take(pageSize).ToListAsync();
+            var products = await productRepository.GetAll()
+                .Include(p => p.Category) // 🆕
+                .ToListAsync();
 
             #region Manuel Mapping
             //var productsAsDto = products.Select(p => new ProductDto(p.Id, p.Name, p.Price, p.Stock)).ToList();
@@ -52,19 +38,39 @@ namespace App.Services.Products
 
             return ServiceResult<List<ProductDto>>.Success(productsAsDto);
         }
+       
+        public async Task<ServiceResult<PagedResult<ProductDto>>> GetPagedAllListAsync(int pageNumber, int pageSize)
+        {
+            var totalCount = await productRepository.GetAll().CountAsync();
+
+            var products = await productRepository.GetAll()
+                .Include(p => p.Category) // 🆕
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            #region Manuel Mapping
+            //var productsAsDto = products.Select(p => new ProductDto(p.Id, p.Name, p.Price, p.Stock)).ToList();
+            #endregion
+
+            var productsAsDto = mapper.Map<List<ProductDto>>(products);
+
+            // 🆕 PagedResult içerisine hem listeyi hem de totalCount'u koyuyoruz
+            var pagedResult = new PagedResult<ProductDto>(productsAsDto, totalCount);
+
+            return ServiceResult<PagedResult<ProductDto>>.Success(pagedResult);
+        }
 
         public async Task<ServiceResult<ProductDto?>> GetByIdAsync(int id)
         {
-            var product = await productRepository.GetByIdAsync(id);
+            var product = await productRepository.GetAll()
+                .Include(p => p.Category) // 🆕
+                .FirstOrDefaultAsync(p => p.Id == id);
 
             if (product is null)
             {
                 return ServiceResult<ProductDto?>.Fail("Product not found", HttpStatusCode.NotFound);
             }
-
-            #region Manuel Mapping
-            //var productsAsDto = new ProductDto(product!.Id, product.Name, product.Price, product.Stock);
-            #endregion
 
             var productsAsDto = mapper.Map<ProductDto>(product);
 

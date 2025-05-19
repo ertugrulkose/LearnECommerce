@@ -1,6 +1,7 @@
 ﻿using App.Repositories.Categories;
 using App.Services.Categories;
 using App.Services.Categories.Create;
+using App.Services.Categories.Search;
 using App.Services.Categories.Update;
 using App.Services.Filters;
 using Microsoft.AspNetCore.Mvc;
@@ -11,6 +12,15 @@ namespace App.API.Controllers
     {
         [HttpGet]
         public async Task<IActionResult> GetCategories() => CreateActionResult(await categoryService.GetAllListAsync());
+
+        [HttpGet("{pageNumber:int}/{pageSize:int}")]
+        public async Task<IActionResult> GetPagedCategories(int pageNumber, int pageSize)
+            => CreateActionResult(await categoryService.GetPagedAllListAsync(pageNumber, pageSize));
+
+        [HttpPost("search")]
+        public async Task<IActionResult> Search([FromBody] SearchCategoryRequest request)
+            => CreateActionResult(await categoryService.SearchCategoriesAsync(request));
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetCategory(int id) => CreateActionResult(await categoryService.GetByIdAsync(id));
