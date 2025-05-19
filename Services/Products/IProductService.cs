@@ -10,7 +10,7 @@ namespace App.Services.Products
         Task<ServiceResult<List<ProductDto>>> GetTopPriceProductsAsync(int count);
         Task<ServiceResult<List<ProductDto>>> GetAllListAsync();
         Task<ServiceResult<PagedResult<ProductDto>>> GetPagedAllListAsync(int pageNumber, int pageSize);
-        Task<ServiceResult<ProductDto?>> GetByIdAsync(int id);
+        Task<ServiceResult<ProductDetailDto?>> GetByIdAsync(int id);
         Task<ServiceResult<CreateProductResponse>> CreateAsync(CreateProductRequest request);
         Task<ServiceResult> UpdateAsync(int id, UpdateProductRequest request);
         Task<ServiceResult> UpdateStockAsync(UpdateProductStockRequest request);

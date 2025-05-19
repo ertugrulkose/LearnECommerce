@@ -1,2 +1,11 @@
-﻿namespace App.Services.Products.Create;
-public record CreateProductRequest(string Name, decimal Price, int Stock, int CategoryId);
+﻿using Microsoft.AspNetCore.Http;
+
+namespace App.Services.Products.Create;
+public record CreateProductRequest(
+    string Name,
+    decimal Price,
+    int Stock,
+    int CategoryId,
+    IFormFile? Thumbnail,
+    List<IFormFile>? Images
+    );

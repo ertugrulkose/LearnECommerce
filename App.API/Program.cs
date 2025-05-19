@@ -1,7 +1,8 @@
-using App.Repositories.Extensions;
+﻿using App.Repositories.Extensions;
 using App.Services;
 using App.Services.Extensions;
 using App.Services.Queues.Consumers;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,16 +21,16 @@ builder.Services.AddOpenApi();
 // For Swagger
 builder.Services.AddSwaggerGen();
 
-// CORS AYARLARI EKLEND� 
+// CORS AYARLARI EKLENDİ 
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", builder =>
     {
         builder.WithOrigins("http://localhost:5173") // Frontend'in adresi
-            .AllowAnyMethod() // GET, POST, PUT, DELETE her �eye izin ver
-            .AllowAnyHeader() // Authorization, Content-Type gibi t�m header'lar� kabul et
-            .AllowCredentials(); // E�er JWT veya Cookie tabanl� kimlik do�rulama varsa bunu a�
+            .AllowAnyMethod() // GET, POST, PUT, DELETE her şeye izin ver
+            .AllowAnyHeader() // Authorization, Content-Type gibi tüm header'ları kabul et
+            .AllowCredentials(); // Eğer JWT veya Cookie tabanlı kimlik doğrulama varsa bunu aç
     });
 });
 
@@ -56,6 +57,16 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseStaticFiles(); // wwwroot için
+
+// 🔥 uploads klasörünü dışarıya aç
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads")),
+    RequestPath = "/uploads"
+});
 
 // CORS DEVREYE ALINDI 
 app.UseCors("AllowFrontend");

@@ -9,6 +9,8 @@ namespace App.Repositories
     {
         public DbSet<Product>  Products { get; set; } = default!;
         public DbSet<Category> Categories { get; set; } = default!;
+        public DbSet<ProductImage> ProductImages { get; set; } = default!;
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

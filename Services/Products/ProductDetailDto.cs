@@ -1,12 +1,13 @@
 ﻿namespace App.Services.Products
 {
-    public record ProductDto(
+    public record ProductDetailDto(
         int Id,
         string Name,
         decimal Price,
         int Stock,
         int CategoryId,
         string CategoryName,
-        string? ThumbnailPath
-        );
+        string? ThumbnailPath,
+        List<string>? ImagePaths
+    );
 }

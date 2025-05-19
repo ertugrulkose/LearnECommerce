@@ -20,7 +20,7 @@ namespace App.API.Controllers
         public async Task<IActionResult> GetById(int id) => CreateActionResult(await productService.GetByIdAsync(id));
 
         [HttpPost]
-        public async Task<IActionResult> Create(CreateProductRequest request) => CreateActionResult(await productService.CreateAsync(request));
+        public async Task<IActionResult> Create([FromForm]CreateProductRequest request) => CreateActionResult(await productService.CreateAsync(request));
 
         [ServiceFilter(typeof(NotFoundFilter<Product, int>))]
         [HttpPut("{id:int}")]
